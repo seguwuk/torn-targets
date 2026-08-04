@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import targetData from '../../../../target_list.json';
+import targetData from '../../../json/target_list.json';
 
 interface TargetItem {
   name: string;
@@ -58,6 +58,37 @@ export class TargetComponent {
       this.sortMode = column;
       this.sortOrder = 'recent';
     }
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result as string);
+
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new Error('Invalid JSON structure. Expected an object with target entries.');
+        }
+
+        this.targets = Object.entries(parsed as Record<string, TargetItem>).map(([id, data]) => ({
+          id,
+          data
+        }));
+      } catch (error) {
+        console.error('Failed to load target JSON:', error);
+        window.alert('Failed to load JSON file. Please select a valid target JSON file.');
+      }
+    };
+
+    reader.readAsText(file);
   }
 
   private getSortValue(target: TargetItem): number {

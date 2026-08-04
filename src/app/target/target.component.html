@@ -1,6 +1,16 @@
 <div class="target-list">
   <div class="target-list__toolbar">
     <h2>Targets</h2>
+    <div class="target-list__upload">
+      <label class="target-list__upload-label" for="target-file-input">Upload your YATA JSON here: </label>
+      <input
+        id="target-file-input"
+        type="file"
+        accept="application/json"
+        (change)="onFileSelected($event)"
+        class="target-list__upload-input"
+      />
+    </div>
   </div>
 
   <p class="target-list__summary">{{ targets.length }} targets loaded</p>
