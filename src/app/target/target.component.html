@@ -1,0 +1,41 @@
+<div class="target-list">
+  <div class="target-list__toolbar">
+    <h2>Targets</h2>
+  </div>
+
+  <p class="target-list__summary">{{ targets.length }} targets loaded</p>
+
+  <div class="target-list__table">
+    <div class="target-list__header-row">
+      <button type="button" class="target-list__header-cell target-list__header-cell--clickable" (click)="sortBy('name')">
+        Name {{ sortMode === 'name' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
+      </button>
+      <button type="button" class="target-list__header-cell target-list__header-cell--clickable" (click)="sortBy('level')">
+        Level {{ sortMode === 'level' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
+      </button>
+      <button type="button" class="target-list__header-cell target-list__header-cell--clickable" (click)="sortBy('lastAction')">
+        Last Action {{ sortMode === 'lastAction' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
+      </button>
+      <button type="button" class="target-list__header-cell target-list__header-cell--clickable" (click)="sortBy('lastAttack')">
+        Last Attack {{ sortMode === 'lastAttack' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
+      </button>
+      <span class="target-list__header-cell">Action</span>
+    </div>
+
+    <ul class="target-list__items" *ngIf="sortedTargets.length; else emptyState">
+      <li class="target-list__item" *ngFor="let target of sortedTargets">
+        <div class="target-list__row">
+          <span class="target-list__name">{{ target.data.name }}</span>
+          <span class="target-list__level">Lv {{ target.data.level }}</span>
+          <span class="target-list__last-action">{{ target.data.last_action_relative }}</span>
+          <span class="target-list__timestamp">{{ getRelativeTime(target.data.last_attack_timestamp) }}</span>
+          <button type="button" class="target-list__attack" (click)="attackTarget(target.id)">ATTACK</button>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <ng-template #emptyState>
+    <p>No targets available.</p>
+  </ng-template>
+</div>
