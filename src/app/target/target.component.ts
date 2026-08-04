@@ -51,6 +51,30 @@ export class TargetComponent {
     console.log('Attack target ID:', id);
   }
 
+  getLastActionAgeClass(target: TargetItem): string {
+    const days = this.getLastActionAgeDays(target.last_action_relative);
+
+    if (days < 10) {
+      return 'target-list__item--recent';
+    }
+
+    if (days <= 30) {
+      return 'target-list__item--moderate';
+    }
+
+    return 'target-list__item--stale';
+  }
+
+  private getLastActionAgeDays(lastAction: string): number {
+    const minutes = this.parseLastAction(lastAction);
+
+    if (minutes === Number.MAX_SAFE_INTEGER) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+
+    return Math.floor(minutes / 1440);
+  }
+
   sortBy(column: 'name' | 'level' | 'lastAction' | 'lastAttack'): void {
     if (this.sortMode === column) {
       this.sortOrder = this.sortOrder === 'recent' ? 'oldest' : 'recent';

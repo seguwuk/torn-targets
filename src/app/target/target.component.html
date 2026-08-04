@@ -1,39 +1,51 @@
 <div class="target-list">
+  <div class="target-list__image-wrap">
+    <img alt="AoA" class="target-list__logo" src="https://factionimages.torn.com/e2802c6d-77dd-4a9b-b4b5-7aaed8aab063-32395.gif">
+    <div class="target-list__image-credit">
+      <a href="https://www.torn.com/profiles.php?XID=2835629" target="_blank" rel="noopener noreferrer">Made by Seguwuk</a>
+    </div>
+  </div>
   <div class="target-list__toolbar">
-    <h2>Targets</h2>
+    <div class="target-list__title">
+      <h1>Your Yata Torn Targets</h1>
+    </div>
     <div class="target-list__upload">
       <label class="target-list__upload-label" for="target-file-input">Upload your YATA JSON here: </label>
-      <input
-        id="target-file-input"
-        type="file"
-        accept="application/json"
-        (change)="onFileSelected($event)"
-        class="target-list__upload-input"
-      />
+      <input id="target-file-input" type="file" accept="application/json" (change)="onFileSelected($event)"
+        class="target-list__upload-input" />
     </div>
   </div>
 
   <p class="target-list__summary">{{ targets.length }} targets loaded</p>
+  <div class="target-list__subtitle">
+    <span class="target-list__subtitle-item target-list__item--recent">Red = last action under 10 days</span>
+    <span class="target-list__subtitle-item target-list__item--moderate">Yellow = 11–30 days</span>
+    <span class="target-list__subtitle-item target-list__item--stale">Green = over 30 days</span>
+  </div>
 
   <div class="target-list__table">
     <div class="target-list__header-row">
-      <button type="button" class="target-list__header-cell target-list__header-cell--clickable" (click)="sortBy('name')">
+      <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
+        (click)="sortBy('name')">
         Name {{ sortMode === 'name' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
       </button>
-      <button type="button" class="target-list__header-cell target-list__header-cell--clickable" (click)="sortBy('level')">
+      <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
+        (click)="sortBy('level')">
         Level {{ sortMode === 'level' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
       </button>
-      <button type="button" class="target-list__header-cell target-list__header-cell--clickable" (click)="sortBy('lastAction')">
+      <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
+        (click)="sortBy('lastAction')">
         Last Action {{ sortMode === 'lastAction' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
       </button>
-      <button type="button" class="target-list__header-cell target-list__header-cell--clickable" (click)="sortBy('lastAttack')">
+      <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
+        (click)="sortBy('lastAttack')">
         Last Attack {{ sortMode === 'lastAttack' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
       </button>
       <span class="target-list__header-cell">Action</span>
     </div>
 
     <ul class="target-list__items" *ngIf="sortedTargets.length; else emptyState">
-      <li class="target-list__item" *ngFor="let target of sortedTargets">
+      <li class="target-list__item" *ngFor="let target of sortedTargets" [ngClass]="getLastActionAgeClass(target.data)">
         <div class="target-list__row">
           <span class="target-list__name">{{ target.data.name }}</span>
           <span class="target-list__level">Lv {{ target.data.level }}</span>
