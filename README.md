@@ -2,6 +2,12 @@
 
 A small Angular app that loads target data from a JSON file and displays a sortable list of targets with last action, last attack, and attack actions.
 
+## Online Access
+
+```bash
+https://seguwuk.github.io/torn-targets/
+```
+
 ## Run locally
 
 ```bash
