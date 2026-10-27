@@ -50,10 +50,10 @@
       <li class="target-list__item" *ngFor="let target of sortedTargets" [ngClass]="getLastActionAgeClass(target.data)">
         <div class="target-list__row">
           <span class="target-list__name">{{ target.data.name }}</span>
+          <button type="button" class="target-list__attack" (click)="attackTarget(target.id)">ATTACK</button>
           <span class="target-list__level">Lv {{ target.data.level }}</span>
           <span class="target-list__last-action">{{ target.data.last_action_relative }}</span>
           <span class="target-list__timestamp">{{ getRelativeTime(target.data.last_attack_timestamp) }}</span>
-          <button type="button" class="target-list__attack" (click)="attackTarget(target.id)">ATTACK</button>
         </div>
       </li>
     </ul>
