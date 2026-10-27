@@ -236,7 +236,8 @@ describe('TargetComponent', () => {
     expect(component.apiKey).toBe('personal-key');
   }));
 
-  it('sorts targets by status and last update', () => {
+  it('sorts Okay targets first and hospital targets by time remaining', () => {
+    component.currentTime = 1_700_000_000_000;
     component.targets = [
       {
         id: '1',
@@ -244,6 +245,7 @@ describe('TargetComponent', () => {
           name: 'First',
           level: 50,
           status_state: 'Hospital',
+          status_until: 1_700_000_600,
           life_current: 75,
           last_action_relative: '1 day ago',
           last_attack_timestamp: 0,
@@ -263,14 +265,194 @@ describe('TargetComponent', () => {
           result: ''
         },
         lastUpdatedAt: 1000
+      },
+      {
+        id: '3',
+        data: {
+          name: 'Soonest hospital',
+          level: 50,
+          status_state: 'Hospital',
+          status_until: 1_700_000_180,
+          life_current: 75,
+          last_action_relative: '1 day ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      },
+      {
+        id: '4',
+        data: {
+          name: 'Expired hospital',
+          level: 50,
+          status_state: 'Hospital',
+          status_until: 1_699_999_900,
+          life_current: 75,
+          last_action_relative: '1 day ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
       }
     ];
 
     component.sortBy('status');
-    expect(component.sortedTargets.map(target => target.id)).toEqual(['1', '2']);
+    expect(component.sortedTargets.map(target => target.id)).toEqual(['2', '4', '3', '1']);
 
     component.sortBy('lastUpdate');
-    expect(component.sortedTargets.map(target => target.id)).toEqual(['1', '2']);
+    expect(component.sortedTargets.map(target => target.id)).toEqual(['1', '2', '3', '4']);
+  });
+
+  it('sorts Status by the same remaining seconds shown in hospital countdowns', () => {
+    component.currentTime = 1_700_000_000_000;
+    const nowSeconds = component.currentTime / 1000;
+    const durations = [23 * 60, 15 * 60, 4 * 60, 21 * 60, 7 * 60, 10 * 60, 20 * 60,
+      8 * 60, 19 * 60, 18 * 60, 7 * 60, 17 * 60, 13 * 60, 20 * 60, 1, 11 * 60, 12 * 60];
+    component.targets = [
+      {
+        id: 'okay',
+        data: {
+          name: 'Okay',
+          level: 50,
+          status_state: 'Okay',
+          last_action_relative: '1 day ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      },
+      ...durations.map((seconds, index) => ({
+        id: String(index),
+        data: {
+          name: `${seconds} seconds`,
+          level: 50,
+          status_state: 'Hospital',
+          status_until: nowSeconds + seconds + 60,
+          last_action_relative: '1 day ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      }))
+    ];
+
+    component.sortBy('status');
+
+    const sorted = component.sortedTargets;
+    expect(sorted[0].id).toBe('okay');
+    expect(sorted.slice(1).map(target => Number(target.id))).toEqual([
+      14, 2, 4, 10, 7, 5, 15, 16, 12, 1, 11, 9, 8, 6, 13, 3, 0
+    ]);
+    expect(sorted.slice(1).map(target => component.getHospitalCountdown(target))).toEqual([
+      '0:00:01', '0:04:00', '0:07:00', '0:07:00', '0:08:00', '0:10:00',
+      '0:11:00', '0:12:00', '0:13:00', '0:15:00', '0:17:00', '0:18:00',
+      '0:19:00', '0:20:00', '0:20:00', '0:21:00', '0:23:00'
+    ]);
+  });
+
+  it('sorts last-action durations numerically with the most recent first', () => {
+    component.targets = [
+      {
+        id: '1',
+        data: {
+          name: 'Thirteen minutes',
+          level: 50,
+          last_action_relative: '13 mins ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      },
+      {
+        id: '2',
+        data: {
+          name: 'Fifty-two seconds',
+          level: 50,
+          last_action_relative: '52 secs ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      },
+      {
+        id: '3',
+        data: {
+          name: 'One minute',
+          level: 50,
+          last_action_relative: '1 min ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      },
+      {
+        id: '4',
+        data: {
+          name: 'One hour',
+          level: 50,
+          last_action_relative: '1 hour ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      },
+      {
+        id: '5',
+        data: {
+          name: 'Unknown age',
+          level: 50,
+          last_action_relative: 'Online',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      },
+      {
+        id: '6',
+        data: {
+          name: 'One minute and five seconds',
+          level: 50,
+          last_action_relative: '1 min 5 secs ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      },
+      {
+        id: '7',
+        data: {
+          name: 'One minute and fifty seconds',
+          level: 50,
+          last_action_relative: '1 min 50 secs ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      }
+    ];
+
+    expect(component.sortedTargets.map(target => target.id)).toEqual([
+      '2', '3', '6', '7', '1', '4', '5'
+    ]);
+
+    component.sortBy('lastAction');
+    expect(component.sortedTargets.map(target => target.id)).toEqual([
+      '4', '1', '7', '6', '3', '2', '5'
+    ]);
+  });
+
+  it('sorts the displayed last-action values numerically despite conflicting timestamps', () => {
+    const durations = [
+      '23 mins', '15 mins', '4 mins', '21 mins', '7 mins', '10 mins', '20 mins',
+      '8 mins', '19 mins', '18 mins', '7 mins', '17 mins', '13 mins', '20 mins',
+      '1 secs', '11 mins', '12 mins'
+    ];
+    component.targets = durations.map((duration, index) => ({
+      id: String(index),
+      data: {
+        name: duration,
+        level: 50,
+        last_action_relative: duration,
+        last_action_timestamp: 1_700_000_000 + index * 1000,
+        last_attack_timestamp: 0,
+        result: ''
+      }
+    }));
+
+    expect(component.sortedTargets.map(target => target.data.last_action_relative)).toEqual([
+      '1 secs', '4 mins', '7 mins', '7 mins', '8 mins', '10 mins', '11 mins',
+      '12 mins', '13 mins', '15 mins', '17 mins', '18 mins', '19 mins',
+      '20 mins', '20 mins', '21 mins', '23 mins'
+    ]);
   });
 
   it('filters visible targets without changing the refresh target list', () => {

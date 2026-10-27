@@ -81,8 +81,24 @@ export class TargetComponent implements OnInit, OnDestroy {
 
   get sortedTargets(): TargetListItem[] {
     return [...this.targets].sort((a, b) => {
+      if (this.sortMode === 'status') {
+        const statusCompare = this.compareTargetStatus(a, b);
+        return this.sortOrder === 'recent' ? statusCompare : -statusCompare;
+      }
+
       const aValue = this.getSortValue(a);
       const bValue = this.getSortValue(b);
+
+      if (this.sortMode === 'lastAction') {
+        const aUnknown = aValue === Number.MAX_SAFE_INTEGER;
+        const bUnknown = bValue === Number.MAX_SAFE_INTEGER;
+        if (aUnknown !== bUnknown) {
+          return aUnknown ? 1 : -1;
+        }
+
+        const ageCompare = Number(aValue) - Number(bValue);
+        return this.sortOrder === 'recent' ? ageCompare : -ageCompare;
+      }
 
       if (typeof aValue === 'string' && typeof bValue === 'string') {
         const textCompare = aValue.localeCompare(bValue);
@@ -140,13 +156,13 @@ export class TargetComponent implements OnInit, OnDestroy {
   }
 
   private getLastActionAgeDays(lastAction: string): number {
-    const minutes = this.parseLastAction(lastAction);
+    const seconds = this.parseLastAction(lastAction);
 
-    if (minutes === Number.MAX_SAFE_INTEGER) {
+    if (seconds === Number.MAX_SAFE_INTEGER) {
       return Number.MAX_SAFE_INTEGER;
     }
 
-    return Math.floor(minutes / 1440);
+    return Math.floor(seconds / 86400);
   }
 
   sortBy(column: 'name' | 'level' | 'status' | 'lastUpdate' | 'health' | 'lastAction' | 'lastAttack'): void {
@@ -328,7 +344,7 @@ export class TargetComponent implements OnInit, OnDestroy {
     const life = response['life'];
     const lifeCurrent = this.isRecord(life) ? life['current'] : undefined;
     const lifeMaximum = this.isRecord(life) ? life['maximum'] : undefined;
-    const liveData: TargetLiveData = {};
+    const liveData: TargetLiveData = { status_until: undefined };
     if (this.isRecord(status)) {
       if (typeof status['state'] === 'string') {
         liveData.status_state = status['state'];
@@ -469,6 +485,41 @@ export class TargetComponent implements OnInit, OnDestroy {
     }
   }
 
+  private compareTargetStatus(a: TargetListItem, b: TargetListItem): number {
+    const aState = a.data.status_state?.toLowerCase();
+    const bState = b.data.status_state?.toLowerCase();
+    const aRank = this.getStatusSortRank(aState);
+    const bRank = this.getStatusSortRank(bState);
+
+    if (aRank !== bRank) {
+      return aRank - bRank;
+    }
+
+    if (aRank === 1) {
+      return this.getHospitalSortTime(a) - this.getHospitalSortTime(b);
+    }
+
+    const aStatus = (a.data.status_description || a.data.status_state || '').toLowerCase();
+    const bStatus = (b.data.status_description || b.data.status_state || '').toLowerCase();
+    return aStatus.localeCompare(bStatus);
+  }
+
+  private getStatusSortRank(state?: string): number {
+    if (state === 'okay') {
+      return 0;
+    }
+
+    if (state === 'hospital') {
+      return 1;
+    }
+
+    return state ? 2 : 3;
+  }
+
+  private getHospitalSortTime(target: TargetListItem): number {
+    return this.getHospitalRemainingSeconds(target) ?? Number.MAX_SAFE_INTEGER;
+  }
+
   getLastUpdateTime(timestamp?: number): string {
     return timestamp === undefined ? 'Never' : this.getRelativeTime(Math.floor(timestamp / 1000));
   }
@@ -489,18 +540,10 @@ export class TargetComponent implements OnInit, OnDestroy {
   }
 
   getHospitalCountdown(target: TargetListItem): string | undefined {
-    if (target.data.status_state?.toLowerCase() !== 'hospital' || target.data.status_until === undefined) {
+    const remainingSeconds = this.getHospitalRemainingSeconds(target);
+    if (remainingSeconds === undefined) {
       return undefined;
     }
-
-    const remainingSeconds = Math.max(
-      0,
-      Math.ceil(
-        target.data.status_until -
-        this.currentTime / 1000 -
-        HOSPITAL_COUNTDOWN_OFFSET_SECONDS
-      )
-    );
 
     if (remainingSeconds === 0) {
       return 'Time reached — refresh to confirm';
@@ -516,6 +559,24 @@ export class TargetComponent implements OnInit, OnDestroy {
     return days > 0
       ? `${days}d ${String(hours % 24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
       : clock;
+  }
+
+  private getHospitalRemainingSeconds(target: TargetListItem): number | undefined {
+    if (target.data.status_state?.toLowerCase() !== 'hospital') {
+      return undefined;
+    }
+
+    const statusUntil = Number(target.data.status_until);
+    if (!Number.isFinite(statusUntil) || statusUntil <= 0) {
+      return undefined;
+    }
+
+    return Math.max(
+      0,
+      Math.ceil(
+        statusUntil - this.currentTime / 1000 - HOSPITAL_COUNTDOWN_OFFSET_SECONDS
+      )
+    );
   }
 
   getRelativeTime(timestamp: number): string {
@@ -541,27 +602,26 @@ export class TargetComponent implements OnInit, OnDestroy {
   }
 
   private parseLastAction(value: string): number {
-    const match = value.match(/(\d+)\s*(minute|minutes|hour|hours|day|days)/i);
+    const matches = value.matchAll(/(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|days?)/gi);
+    let totalSeconds = 0;
+    let foundDuration = false;
 
-    if (!match) {
-      return Number.MAX_SAFE_INTEGER;
+    for (const match of matches) {
+      const amount = Number(match[1]);
+      const unit = match[2].toLowerCase();
+      foundDuration = true;
+
+      if (unit.startsWith('day')) {
+        totalSeconds += amount * 86400;
+      } else if (unit.startsWith('hour') || unit.startsWith('hr')) {
+        totalSeconds += amount * 3600;
+      } else if (unit.startsWith('min')) {
+        totalSeconds += amount * 60;
+      } else {
+        totalSeconds += amount;
+      }
     }
 
-    const amount = Number(match[1]);
-    const unit = match[2].toLowerCase();
-
-    switch (unit) {
-      case 'minute':
-      case 'minutes':
-        return amount;
-      case 'hour':
-      case 'hours':
-        return amount * 60;
-      case 'day':
-      case 'days':
-        return amount * 60 * 24;
-      default:
-        return Number.MAX_SAFE_INTEGER;
-    }
+    return foundDuration ? totalSeconds : Number.MAX_SAFE_INTEGER;
   }
 }
