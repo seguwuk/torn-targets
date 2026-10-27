@@ -6,6 +6,7 @@ import targetData from '../../../json/target_list.json';
 interface TargetItem {
   name: string;
   level: number;
+  fair_fight?: number | string;
   status_state?: string;
   status_description?: string;
   status_until?: number;
@@ -24,6 +25,7 @@ interface TargetListItem {
 }
 
 interface TargetLiveData {
+  fair_fight?: number;
   status_state?: string;
   status_description?: string;
   status_until?: number;
@@ -32,6 +34,11 @@ interface TargetLiveData {
   last_action_relative?: string;
   last_action_timestamp?: number;
   last_attack_timestamp?: number;
+}
+
+interface AttackHistoryEntry {
+  timestamp: number;
+  fairFight?: number;
 }
 
 const HOSPITAL_COUNTDOWN_OFFSET_SECONDS = 60;
@@ -51,7 +58,15 @@ export class TargetComponent implements OnInit, OnDestroy {
   private targetFileBaseName = 'torn-targets';
   private downloadSequence = 1;
 
-  sortMode: 'name' | 'level' | 'status' | 'lastUpdate' | 'health' | 'lastAction' | 'lastAttack' = 'lastAction';
+  sortMode:
+    | 'name'
+    | 'fairFight'
+    | 'level'
+    | 'status'
+    | 'lastUpdate'
+    | 'health'
+    | 'lastAction'
+    | 'lastAttack' = 'lastAction';
   sortOrder: 'recent' | 'oldest' = 'recent';
   apiKey = '';
   targetFilter = '';
@@ -81,6 +96,11 @@ export class TargetComponent implements OnInit, OnDestroy {
 
   get sortedTargets(): TargetListItem[] {
     return [...this.targets].sort((a, b) => {
+      if (this.sortMode === 'fairFight') {
+        const fairFightCompare = this.compareFairFight(a, b);
+        return fairFightCompare;
+      }
+
       if (this.sortMode === 'status') {
         const statusCompare = this.compareTargetStatus(a, b);
         return this.sortOrder === 'recent' ? statusCompare : -statusCompare;
@@ -165,7 +185,9 @@ export class TargetComponent implements OnInit, OnDestroy {
     return Math.floor(seconds / 86400);
   }
 
-  sortBy(column: 'name' | 'level' | 'status' | 'lastUpdate' | 'health' | 'lastAction' | 'lastAttack'): void {
+  sortBy(
+    column: 'name' | 'fairFight' | 'level' | 'status' | 'lastUpdate' | 'health' | 'lastAction' | 'lastAttack'
+  ): void {
     if (this.sortMode === column) {
       this.sortOrder = this.sortOrder === 'recent' ? 'oldest' : 'recent';
     } else {
@@ -242,12 +264,12 @@ export class TargetComponent implements OnInit, OnDestroy {
     this.isRefreshing = true;
     this.refreshProgress = 0;
     this.refreshMessage = 'Starting refresh...';
-    let attackHistory: Map<string, number> | undefined;
+    let attackHistory: Map<string, AttackHistoryEntry> | undefined;
     let attackHistoryWarning = '';
 
     try {
       try {
-        attackHistory = await this.fetchMyAttackTimestamps(key);
+        attackHistory = await this.fetchMyAttackHistory(key);
       } catch (error) {
         attackHistoryWarning = this.getRefreshErrorMessage(error);
       }
@@ -272,7 +294,7 @@ export class TargetComponent implements OnInit, OnDestroy {
       }
 
       this.refreshMessage = attackHistoryWarning
-        ? `Updated all ${targetsToRefresh.length} targets. Last attack data was not updated: ${attackHistoryWarning}`
+        ? `Updated all ${targetsToRefresh.length} targets. Last attack and Fair Fight data were not updated: ${attackHistoryWarning}`
         : `Updated all ${targetsToRefresh.length} targets.`;
     } catch (error) {
       this.refreshMessage =
@@ -300,10 +322,10 @@ export class TargetComponent implements OnInit, OnDestroy {
     this.refreshMessage = `Refreshing ${target.data.name}...`;
 
     try {
-      let attackHistory: Map<string, number> | undefined;
+      let attackHistory: Map<string, AttackHistoryEntry> | undefined;
       let attackHistoryWarning = '';
       try {
-        attackHistory = await this.fetchMyAttackTimestamps(key);
+        attackHistory = await this.fetchMyAttackHistory(key);
       } catch (error) {
         attackHistoryWarning = this.getRefreshErrorMessage(error);
       }
@@ -318,7 +340,7 @@ export class TargetComponent implements OnInit, OnDestroy {
       Object.assign(target.data, liveData);
       target.lastUpdatedAt = Date.now();
       this.refreshMessage = attackHistoryWarning
-        ? `Updated ${target.data.name}. Last attack data was not updated: ${attackHistoryWarning}`
+        ? `Updated ${target.data.name}. Last attack and Fair Fight data were not updated: ${attackHistoryWarning}`
         : `Updated ${target.data.name}.`;
     } catch (error) {
       this.refreshMessage = `Could not refresh ${target.data.name}: ${this.getRefreshErrorMessage(error)}`;
@@ -330,7 +352,7 @@ export class TargetComponent implements OnInit, OnDestroy {
   private async fetchTargetLiveData(
     id: string,
     key: string,
-    attackHistory?: Map<string, number>
+    attackHistory?: Map<string, AttackHistoryEntry>
   ): Promise<TargetLiveData> {
     if (!/^\d+$/.test(id)) {
       throw new Error(`Target ID "${id}" is not a valid Torn user ID.`);
@@ -342,9 +364,19 @@ export class TargetComponent implements OnInit, OnDestroy {
     const statusUntil = this.isRecord(status) ? status['until'] : undefined;
     const lastAction = response['last_action'];
     const life = response['life'];
+    const fairFight = response['fair_fight'];
     const lifeCurrent = this.isRecord(life) ? life['current'] : undefined;
     const lifeMaximum = this.isRecord(life) ? life['maximum'] : undefined;
     const liveData: TargetLiveData = { status_until: undefined };
+    if (typeof fairFight === 'number' && Number.isFinite(fairFight)) {
+      liveData.fair_fight = fairFight;
+    } else if (
+      typeof fairFight === 'string' &&
+      fairFight.trim() !== '' &&
+      Number.isFinite(Number(fairFight))
+    ) {
+      liveData.fair_fight = Number(fairFight);
+    }
     if (this.isRecord(status)) {
       if (typeof status['state'] === 'string') {
         liveData.status_state = status['state'];
@@ -370,9 +402,12 @@ export class TargetComponent implements OnInit, OnDestroy {
         liveData.last_action_timestamp = lastAction['timestamp'];
       }
     }
-    const lastAttackTimestamp = attackHistory?.get(id);
-    if (lastAttackTimestamp !== undefined) {
-      liveData.last_attack_timestamp = lastAttackTimestamp;
+    const lastAttack = attackHistory?.get(id);
+    if (lastAttack !== undefined) {
+      liveData.last_attack_timestamp = lastAttack.timestamp;
+      if (liveData.fair_fight === undefined && lastAttack.fairFight !== undefined) {
+        liveData.fair_fight = lastAttack.fairFight;
+      }
     }
 
     if (
@@ -386,7 +421,7 @@ export class TargetComponent implements OnInit, OnDestroy {
     return liveData;
   }
 
-  private async fetchMyAttackTimestamps(key: string): Promise<Map<string, number>> {
+  private async fetchMyAttackHistory(key: string): Promise<Map<string, AttackHistoryEntry>> {
     const ownProfile = await this.requestTornData('', 'basic', key);
     const playerId = ownProfile['player_id'];
     if (typeof playerId !== 'number' && typeof playerId !== 'string') {
@@ -400,7 +435,7 @@ export class TargetComponent implements OnInit, OnDestroy {
       throw new Error('Torn did not return your full attack history.');
     }
 
-    const timestamps = new Map<string, number>();
+    const attackHistory = new Map<string, AttackHistoryEntry>();
     for (const attack of Object.values(attacks)) {
       if (!this.isRecord(attack)) {
         continue;
@@ -417,11 +452,33 @@ export class TargetComponent implements OnInit, OnDestroy {
         timestamp > 0
       ) {
         const targetId = String(defenderId);
-        timestamps.set(targetId, Math.max(timestamps.get(targetId) || 0, timestamp));
+        const modifiers = attack['modifiers'];
+        const fairFightValue = this.isRecord(modifiers) ? modifiers['fair_fight'] : undefined;
+        const fairFight = this.toFiniteNumber(fairFightValue);
+        const previousAttack = attackHistory.get(targetId);
+        if (!previousAttack || timestamp >= previousAttack.timestamp) {
+          attackHistory.set(targetId, {
+            timestamp,
+            fairFight: fairFight ?? previousAttack?.fairFight
+          });
+        }
       }
     }
 
-    return timestamps;
+    return attackHistory;
+  }
+
+  private toFiniteNumber(value: unknown): number | undefined {
+    if (typeof value !== 'number' && typeof value !== 'string') {
+      return undefined;
+    }
+
+    if (typeof value === 'string' && value.trim() === '') {
+      return undefined;
+    }
+
+    const number = Number(value);
+    return Number.isFinite(number) ? number : undefined;
   }
 
   private async requestTornData(
@@ -483,6 +540,31 @@ export class TargetComponent implements OnInit, OnDestroy {
       default:
         return this.parseLastAction(target.data.last_action_relative);
     }
+  }
+
+  private compareFairFight(a: TargetListItem, b: TargetListItem): number {
+    const aValue = this.getFairFightValue(a);
+    const bValue = this.getFairFightValue(b);
+
+    if (aValue === undefined || bValue === undefined) {
+      if (aValue === bValue) {
+        return a.data.name.localeCompare(b.data.name);
+      }
+
+      return aValue === undefined ? 1 : -1;
+    }
+
+    const compare = aValue - bValue;
+    return this.sortOrder === 'recent' ? -compare : compare;
+  }
+
+  private getFairFightValue(target: TargetListItem): number | undefined {
+    if (target.data.fair_fight === undefined || String(target.data.fair_fight).trim() === '') {
+      return undefined;
+    }
+
+    const value = Number(target.data.fair_fight);
+    return Number.isFinite(value) ? value : undefined;
   }
 
   private compareTargetStatus(a: TargetListItem, b: TargetListItem): number {

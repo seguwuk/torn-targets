@@ -31,6 +31,29 @@ describe('TargetComponent', () => {
     expect(component).toBeTruthy();
   });
 
+  it('displays the imported fair-fight value between Attack and Level', () => {
+    component.targets = [{
+      id: '12345',
+      data: {
+        name: 'Target',
+        level: 50,
+        fair_fight: 1.75,
+        last_action_relative: '1 day ago',
+        last_attack_timestamp: 0,
+        result: ''
+      }
+    }];
+    fixture.detectChanges();
+
+    const row = fixture.nativeElement.querySelector('.target-list__row') as HTMLElement;
+    const columns = Array.from(row.children) as HTMLElement[];
+
+    expect(columns[1].classList).toContain('target-list__attack');
+    expect(columns[2].classList).toContain('target-list__fair-fight');
+    expect(columns[2].textContent?.trim()).toBe('1.75');
+    expect(columns[3].classList).toContain('target-list__level');
+  });
+
   it('toggles dark mode and persists the preference', () => {
     component.toggleDarkMode();
 
@@ -118,7 +141,8 @@ describe('TargetComponent', () => {
         '1': {
           attacker_id: 555,
           defender_id: 12345,
-          timestamp_ended: 1234567000
+          timestamp_ended: 1234567000,
+          modifiers: { fair_fight: 1.65 }
         },
         '2': {
           attacker_id: 777,
@@ -146,9 +170,11 @@ describe('TargetComponent', () => {
     expect(component.targets[0].data.status_description).toBe('Okay');
     expect(component.targets[0].data.life_current).toBe(75);
     expect(component.targets[0].data.life_maximum).toBe(100);
+    expect(component.targets[0].data.fair_fight).toBe(1.65);
     expect(component.targets[0].data.last_action_relative).toBe('5 minutes ago');
     expect(component.targets[0].data.last_action_timestamp).toBe(1234567890);
     expect(component.targets[0].data.last_attack_timestamp).toBe(1234567000);
+    expect(JSON.parse(component.getUpdatedJson())['12345'].fair_fight).toBe(1.65);
     expect(component.apiKey).toBe('');
   }));
 
@@ -299,6 +325,49 @@ describe('TargetComponent', () => {
 
     component.sortBy('lastUpdate');
     expect(component.sortedTargets.map(target => target.id)).toEqual(['1', '2', '3', '4']);
+  });
+
+  it('sorts Fair Fight values numerically and keeps missing values last', () => {
+    component.targets = [
+      {
+        id: '1',
+        data: {
+          name: 'Lower fair fight',
+          level: 50,
+          fair_fight: '1.2',
+          last_action_relative: '1 day ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      },
+      {
+        id: '2',
+        data: {
+          name: 'Higher fair fight',
+          level: 50,
+          fair_fight: 2.5,
+          last_action_relative: '1 day ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      },
+      {
+        id: '3',
+        data: {
+          name: 'Missing fair fight',
+          level: 50,
+          last_action_relative: '1 day ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      }
+    ];
+
+    component.sortBy('fairFight');
+    expect(component.sortedTargets.map(target => target.id)).toEqual(['2', '1', '3']);
+
+    component.sortBy('fairFight');
+    expect(component.sortedTargets.map(target => target.id)).toEqual(['1', '2', '3']);
   });
 
   it('sorts Status by the same remaining seconds shown in hospital countdowns', () => {

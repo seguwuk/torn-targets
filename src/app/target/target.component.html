@@ -67,6 +67,10 @@
       </button>
       <span class="target-list__header-cell">Action</span>
       <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
+        (click)="sortBy('fairFight')" [disabled]="isRefreshing">
+        Fair Fight {{ sortMode === 'fairFight' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
+      </button>
+      <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
         (click)="sortBy('level')" [disabled]="isRefreshing">
         Level {{ sortMode === 'level' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
       </button>
@@ -99,6 +103,7 @@
             target="_blank" rel="noopener noreferrer">{{ target.data.name }}</a>
           <button type="button" class="target-list__attack" [ngClass]="getTargetStatusClass(target)"
             (click)="attackTarget(target.id)">ATTACK</button>
+          <span class="target-list__fair-fight">{{ target.data.fair_fight ?? '—' }}</span>
           <span class="target-list__level">Lv {{ target.data.level }}</span>
           <span class="target-list__status" [ngClass]="getTargetStatusClass(target)"
             [title]="target.data.status_description || target.data.status_state || 'Not refreshed'">
