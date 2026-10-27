@@ -230,6 +230,38 @@ describe('TargetComponent', () => {
     expect(component.sortedTargets.map(target => target.id)).toEqual(['1', '2']);
   });
 
+  it('filters visible targets without changing the refresh target list', () => {
+    component.targets = [
+      {
+        id: '12345',
+        data: {
+          name: 'Hospital target',
+          level: 50,
+          status_state: 'Hospital',
+          last_action_relative: '1 day ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      },
+      {
+        id: '67890',
+        data: {
+          name: 'Okay target',
+          level: 25,
+          status_state: 'Okay',
+          last_action_relative: '2 days ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      }
+    ];
+    component.isRefreshing = true;
+    component.targetFilter = 'hospital';
+
+    expect(component.filteredTargets.map(target => target.id)).toEqual(['12345']);
+    expect(component.targets.map(target => target.id)).toEqual(['12345', '67890']);
+  });
+
   it('counts down to the hospital status until timestamp', fakeAsync(() => {
     component.ngOnDestroy();
     component.currentTime = Date.now();
@@ -239,7 +271,7 @@ describe('TargetComponent', () => {
         name: 'Hospital target',
         level: 50,
         status_state: 'Hospital',
-        status_until: Math.floor(component.currentTime / 1000) + 5,
+        status_until: Math.floor(component.currentTime / 1000) + 65,
         last_action_relative: '1 day ago',
         last_attack_timestamp: 0,
         result: ''
@@ -255,6 +287,24 @@ describe('TargetComponent', () => {
     expect(component.getHospitalCountdown(target)).toBe('Time reached — refresh to confirm');
     component.ngOnDestroy();
   }));
+
+  it('applies Torn’s one-minute hospital countdown offset', () => {
+    component.currentTime = 1_700_000_000_000;
+    const target = {
+      id: '1',
+      data: {
+        name: 'Hospital target',
+        level: 50,
+        status_state: 'Hospital',
+        status_until: 1_700_000_270,
+        last_action_relative: '1 day ago',
+        last_attack_timestamp: 0,
+        result: ''
+      }
+    };
+
+    expect(component.getHospitalCountdown(target)).toBe('0:03:30');
+  });
 
   it('refreshes targets in the sort order active when refresh starts', fakeAsync(() => {
     component.targets = [

@@ -34,6 +34,8 @@ interface TargetLiveData {
   last_attack_timestamp?: number;
 }
 
+const HOSPITAL_COUNTDOWN_OFFSET_SECONDS = 60;
+
 @Component({
   selector: 'app-target',
   templateUrl: './target.component.html',
@@ -52,6 +54,7 @@ export class TargetComponent implements OnInit, OnDestroy {
   sortMode: 'name' | 'level' | 'status' | 'lastUpdate' | 'health' | 'lastAction' | 'lastAttack' = 'lastAction';
   sortOrder: 'recent' | 'oldest' = 'recent';
   apiKey = '';
+  targetFilter = '';
   isDarkMode = localStorage.getItem('torn-targets-dark-mode') === 'true';
   isRefreshing = false;
   refreshProgress = 0;
@@ -89,6 +92,20 @@ export class TargetComponent implements OnInit, OnDestroy {
       const numericCompare = Number(aValue) - Number(bValue);
       return this.sortOrder === 'recent' ? -numericCompare : numericCompare;
     });
+  }
+
+  get filteredTargets(): TargetListItem[] {
+    const filter = this.targetFilter.trim().toLowerCase();
+    if (!filter) {
+      return this.sortedTargets;
+    }
+
+    return this.sortedTargets.filter(({ id, data }) =>
+      data.name.toLowerCase().includes(filter) ||
+      id.includes(filter) ||
+      String(data.level).includes(filter) ||
+      (data.status_description || data.status_state || '').toLowerCase().includes(filter)
+    );
   }
 
   attackTarget(id: string): void {
@@ -466,7 +483,11 @@ export class TargetComponent implements OnInit, OnDestroy {
 
     const remainingSeconds = Math.max(
       0,
-      Math.ceil(target.data.status_until - this.currentTime / 1000)
+      Math.ceil(
+        target.data.status_until -
+        this.currentTime / 1000 -
+        HOSPITAL_COUNTDOWN_OFFSET_SECONDS
+      )
     );
 
     if (remainingSeconds === 0) {

@@ -44,7 +44,15 @@
   </div>
   <p class="target-list__refresh-message" role="status" *ngIf="refreshMessage">{{ refreshMessage }}</p>
 
-  <p class="target-list__summary">{{ targets.length }} targets loaded</p>
+  <div class="target-list__filter-row">
+    <p class="target-list__summary">
+      {{ filteredTargets.length }} of {{ targets.length }} targets shown
+      <span *ngIf="isRefreshing"> · Refresh is still processing the original target order</span>
+    </p>
+    <label class="target-list__filter-label" for="target-filter">Filter targets</label>
+    <input id="target-filter" name="target-filter" type="search" [(ngModel)]="targetFilter"
+      class="target-list__filter-input" placeholder="Name, ID, level, or status" />
+  </div>
   <div class="target-list__subtitle">
     <span class="target-list__subtitle-item target-list__item--recent">Red = last action under 10 days</span>
     <span class="target-list__subtitle-item target-list__item--moderate">Yellow = 11–30 days</span>
@@ -84,8 +92,8 @@
         </button>
     </div>
 
-    <ul class="target-list__items" *ngIf="sortedTargets.length; else emptyState">
-      <li class="target-list__item" *ngFor="let target of sortedTargets" [ngClass]="getLastActionAgeClass(target.data)">
+    <ul class="target-list__items" *ngIf="filteredTargets.length; else emptyState">
+      <li class="target-list__item" *ngFor="let target of filteredTargets" [ngClass]="getLastActionAgeClass(target.data)">
         <div class="target-list__row">
           <a class="target-list__name" [href]="'https://www.torn.com/profiles.php?XID=' + target.id"
             target="_blank" rel="noopener noreferrer">{{ target.data.name }}</a>
@@ -120,6 +128,6 @@
   </div>
 
   <ng-template #emptyState>
-    <p>No targets available.</p>
+    <p>{{ targetFilter ? 'No targets match this filter.' : 'No targets available.' }}</p>
   </ng-template>
 </div>

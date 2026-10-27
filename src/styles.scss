@@ -40,6 +40,12 @@ body.dark-mode .target-list__api-input {
   color: #e6edf7;
 }
 
+body.dark-mode .target-list__filter-input {
+  background: #111a2b;
+  border-color: #2a3851;
+  color: #e6edf7;
+}
+
 body.dark-mode .target-list__api-button,
 body.dark-mode .target-list__attack {
   background: #43d9c2;
@@ -115,6 +121,30 @@ body.dark-mode .target-list__item--moderate {
 body.dark-mode .target-list__item--stale {
   background: #1c3b38;
   border-top-color: #2c6660;
+}
+
+.target-list__filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.target-list__filter-row .target-list__summary {
+  flex: 1 1 14rem;
+  margin: 0;
+}
+
+.target-list__filter-label {
+  font-weight: 600;
+}
+
+.target-list__filter-input {
+  min-width: 14rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #bbb;
+  border-radius: 4px;
 }
 
 @media (max-width: 650px) {

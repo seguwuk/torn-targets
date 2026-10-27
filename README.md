@@ -6,7 +6,9 @@ After uploading a YATA target JSON file, you can optionally enter your personal 
 
 Target names link to their Torn profiles. Status, health, and each target's last successful refresh time are shown in the list. Click any sortable column heading to change the sort order; a refresh processes targets in the order currently shown.
 
-For targets currently in the hospital, the status column also shows a live countdown to Torn's status-until timestamp. When it reaches zero, refresh the target to confirm their current status before attacking.
+Use the filter field to narrow visible targets by name, ID, level, or status. Filtering remains available during refresh and only changes the displayed rows; the refresh continues through its original target list in the order captured when it started.
+
+For targets currently in the hospital, the status column shows a live countdown adjusted by one minute to match the countdown shown on the Torn profile. When it reaches zero, refresh the target to confirm their current status before attacking.
 
 Enter your API key and use the **Refresh** link under a target's status to refresh only that target's status and health.
 
