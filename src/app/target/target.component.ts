@@ -1,12 +1,15 @@
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Component } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import targetData from '../../../json/target_list.json';
 
 interface TargetItem {
   name: string;
   level: number;
-  status_state: string;
-  life_current: number;
-  life_maximum: number;
+  status_state?: string;
+  status_description?: string;
+  life_current?: number;
+  life_maximum?: number;
   last_action_relative: string;
   last_attack_timestamp: number;
   result: string;
@@ -17,12 +20,21 @@ interface TargetListItem {
   data: TargetItem;
 }
 
+interface TargetLiveData {
+  status_state?: string;
+  status_description?: string;
+  life_current?: number;
+  life_maximum?: number;
+}
+
 @Component({
   selector: 'app-target',
   templateUrl: './target.component.html',
   styleUrls: ['./target.component.scss']
 })
 export class TargetComponent {
+  constructor(private readonly http: HttpClient) {}
+
   targets: TargetListItem[] = Object.entries(targetData as Record<string, TargetItem>).map(([id, data]) => ({
     id,
     data
@@ -30,6 +42,10 @@ export class TargetComponent {
 
   sortMode: 'name' | 'level' | 'lastAction' | 'lastAttack' = 'lastAction';
   sortOrder: 'recent' | 'oldest' = 'recent';
+  apiKey = '';
+  isRefreshing = false;
+  refreshProgress = 0;
+  refreshMessage = '';
 
   get sortedTargets(): TargetListItem[] {
     return [...this.targets].sort((a, b) => {
@@ -113,6 +129,102 @@ export class TargetComponent {
     };
 
     reader.readAsText(file);
+  }
+
+  async refreshTargets(): Promise<void> {
+    const key = this.apiKey.trim();
+
+    if (!key || !this.targets.length || this.isRefreshing) {
+      return;
+    }
+
+    const targetsToRefresh = [...this.targets];
+    this.isRefreshing = true;
+    this.refreshProgress = 0;
+    this.refreshMessage = 'Starting refresh...';
+
+    try {
+      for (let index = 0; index < targetsToRefresh.length; index += 1) {
+        if (index > 0) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        const target = targetsToRefresh[index];
+        const liveData = await this.fetchTargetLiveData(target.id, key);
+        Object.assign(target.data, liveData);
+        this.refreshProgress = index + 1;
+        this.refreshMessage = `Updated ${this.refreshProgress} of ${targetsToRefresh.length} targets.`;
+      }
+
+      this.refreshMessage = `Updated all ${targetsToRefresh.length} targets.`;
+    } catch (error) {
+      this.refreshMessage =
+        `Refresh stopped after ${this.refreshProgress} of ${targetsToRefresh.length} targets: ` +
+        this.getRefreshErrorMessage(error);
+    } finally {
+      this.isRefreshing = false;
+      this.apiKey = '';
+    }
+  }
+
+  private async fetchTargetLiveData(id: string, key: string): Promise<TargetLiveData> {
+    if (!/^\d+$/.test(id)) {
+      throw new Error(`Target ID "${id}" is not a valid Torn user ID.`);
+    }
+
+    const params = new HttpParams()
+      .set('selections', 'basic')
+      .set('key', key);
+    const response = await firstValueFrom(
+      this.http.get<unknown>(`https://api.torn.com/user/${id}`, { params })
+    );
+
+    if (!this.isRecord(response)) {
+      throw new Error('Torn returned an unexpected response.');
+    }
+
+    const apiError = response['error'];
+    if (this.isRecord(apiError)) {
+      const message = typeof apiError['error'] === 'string'
+        ? apiError['error']
+        : 'Torn API returned an error.';
+      throw new Error(message);
+    }
+
+    const status = response['status'];
+    const life = response['life'];
+    const lifeCurrent = this.isRecord(life) ? life['current'] : undefined;
+    const lifeMaximum = this.isRecord(life) ? life['maximum'] : undefined;
+    const liveData: TargetLiveData = {
+      status_state: this.isRecord(status) && typeof status['state'] === 'string'
+        ? status['state']
+        : undefined,
+      status_description: this.isRecord(status) && typeof status['description'] === 'string'
+        ? status['description']
+        : undefined,
+      life_current: typeof lifeCurrent === 'number' ? lifeCurrent : undefined,
+      life_maximum: typeof lifeMaximum === 'number' ? lifeMaximum : undefined
+    };
+
+    if (!liveData.status_state && liveData.life_current === undefined) {
+      throw new Error('Torn did not return status or health information for this target.');
+    }
+
+    return liveData;
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
+  private getRefreshErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      return error.status === 0
+        ? 'Could not reach Torn API (network or browser CORS issue).'
+        : `Torn API request failed with HTTP ${error.status}.`;
+    }
+
+    return error instanceof Error ? error.message : 'An unexpected error occurred.';
   }
 
   private getSortValue(target: TargetItem): number {

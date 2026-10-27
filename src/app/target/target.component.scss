@@ -77,6 +77,45 @@
   color: #555;
 }
 
+.target-list__api {
+  display: grid;
+  grid-template-columns: auto minmax(12rem, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.target-list__api-input {
+  min-width: 0;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+}
+
+.target-list__api-button {
+  padding: 0.45rem 0.65rem;
+  border: none;
+  border-radius: 4px;
+  background: #2b6cb0;
+  color: #fff;
+  cursor: pointer;
+}
+
+.target-list__api-button:disabled {
+  background: #9aa8b6;
+  cursor: not-allowed;
+}
+
+.target-list__api-note {
+  grid-column: 1 / -1;
+  color: #666;
+  font-size: 0.82rem;
+}
+
 .target-list__subtitle {
   margin-top: 0;
   margin-bottom: 0.75rem;
@@ -115,12 +154,12 @@
 .target-list__table {
   border: 1px solid #ddd;
   border-radius: 6px;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .target-list__header-row {
   display: grid;
-  grid-template-columns: 1.6fr 0.7fr 1.3fr 1.3fr 0.7fr;
+  grid-template-columns: 1.3fr 0.65fr 0.55fr 1.1fr 0.8fr 1.2fr 0.7fr;
   gap: 0.5rem;
   align-items: center;
   font-weight: 700;
@@ -128,6 +167,7 @@
   background: #f3f4f6;
   border-bottom: 1px solid #ddd;
   box-sizing: border-box;
+  min-width: 900px;
 }
 
 .target-list__header-cell {
@@ -177,10 +217,11 @@
 
 .target-list__row {
   display: grid;
-  grid-template-columns: 1.6fr 0.7fr 1.3fr 1.3fr 0.7fr;
+  grid-template-columns: 1.3fr 0.65fr 0.55fr 1.1fr 0.8fr 1.2fr 0.7fr;
   gap: 0.5rem;
   align-items: center;
   font-size: 0.95rem;
+  min-width: 900px;
 }
 
 .target-list__name,
@@ -197,6 +238,14 @@
 
 .target-list__level {
   color: #2b6cb0;
+}
+
+.target-list__status,
+.target-list__health {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .target-list__last-action {
@@ -226,4 +275,14 @@
   border-radius: 4px;
   background: #f7f7f7;
   cursor: pointer;
+}
+
+@media (max-width: 650px) {
+  .target-list__api {
+    grid-template-columns: 1fr;
+  }
+
+  .target-list__api-note {
+    grid-column: 1;
+  }
 }

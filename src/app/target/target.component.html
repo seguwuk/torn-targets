@@ -14,9 +14,25 @@
     <div class="target-list__upload">
       <label class="target-list__upload-label" for="target-file-input">Upload your YATA JSON here: </label>
       <input id="target-file-input" type="file" accept="application/json" (change)="onFileSelected($event)"
-        class="target-list__upload-input" />
+        class="target-list__upload-input" [disabled]="isRefreshing" />
     </div>
   </div>
+
+  <div class="target-list__api">
+    <label class="target-list__api-label" for="torn-api-key">Torn API key</label>
+    <input id="torn-api-key" name="torn-api-key" type="password" autocomplete="off"
+      [(ngModel)]="apiKey" [disabled]="isRefreshing" class="target-list__api-input"
+      placeholder="Enter your personal API key" />
+    <button type="button" class="target-list__api-button" (click)="refreshTargets()"
+      [disabled]="isRefreshing || !apiKey.trim() || !targets.length">
+      {{ isRefreshing ? 'Refreshing...' : 'Refresh status & health' }}
+    </button>
+    <span class="target-list__api-note">
+      The key is sent directly to Torn over HTTPS, used for this refresh, and not saved by this app.
+      <a href="https://www.torn.com/api.html" target="_blank" rel="noopener noreferrer">About Torn API keys</a>
+    </span>
+  </div>
+  <p class="target-list__refresh-message" role="status" *ngIf="refreshMessage">{{ refreshMessage }}</p>
 
   <p class="target-list__summary">{{ targets.length }} targets loaded</p>
   <div class="target-list__subtitle">
@@ -36,6 +52,8 @@
         (click)="sortBy('level')">
         Level {{ sortMode === 'level' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
       </button>
+      <span class="target-list__header-cell">Status</span>
+      <span class="target-list__header-cell">Health</span>
       <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
         (click)="sortBy('lastAction')">
         Last Action {{ sortMode === 'lastAction' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
@@ -52,6 +70,15 @@
           <span class="target-list__name">{{ target.data.name }}</span>
           <button type="button" class="target-list__attack" (click)="attackTarget(target.id)">ATTACK</button>
           <span class="target-list__level">Lv {{ target.data.level }}</span>
+          <span class="target-list__status"
+            [title]="target.data.status_description || target.data.status_state || 'Not refreshed'">
+            {{ target.data.status_description || target.data.status_state || '—' }}
+          </span>
+          <span class="target-list__health">
+            {{ target.data.life_current !== undefined && target.data.life_maximum !== undefined
+              ? target.data.life_current + ' / ' + target.data.life_maximum
+              : '—' }}
+          </span>
           <span class="target-list__last-action">{{ target.data.last_action_relative }}</span>
           <span class="target-list__timestamp">{{ getRelativeTime(target.data.last_attack_timestamp) }}</span>
         </div>
