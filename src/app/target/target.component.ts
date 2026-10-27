@@ -31,6 +31,7 @@ interface TargetLiveData {
   life_maximum?: number;
   last_action_relative?: string;
   last_action_timestamp?: number;
+  last_attack_timestamp?: number;
 }
 
 @Component({
@@ -45,7 +46,8 @@ export class TargetComponent implements OnInit, OnDestroy {
     id,
     data
   }));
-  private targetFileName = 'torn-targets-updated.json';
+  private targetFileBaseName = 'torn-targets';
+  private downloadSequence = 1;
 
   sortMode: 'name' | 'level' | 'status' | 'lastUpdate' | 'health' | 'lastAction' | 'lastAttack' = 'lastAction';
   sortOrder: 'recent' | 'oldest' = 'recent';
@@ -135,7 +137,7 @@ export class TargetComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.targetFileName = this.getUpdatedFileName(file.name);
+    this.setTargetFileName(file.name);
     const reader = new FileReader();
 
     reader.onload = () => {
@@ -165,9 +167,15 @@ export class TargetComponent implements OnInit, OnDestroy {
     const downloadUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = downloadUrl;
-    link.download = this.targetFileName;
+    link.download = this.getNextDownloadFileName();
     link.click();
     URL.revokeObjectURL(downloadUrl);
+  }
+
+  getNextDownloadFileName(): string {
+    const fileName = `${this.targetFileBaseName}-${this.downloadSequence}.json`;
+    this.downloadSequence += 1;
+    return fileName;
   }
 
   getUpdatedJson(): string {
@@ -189,22 +197,38 @@ export class TargetComponent implements OnInit, OnDestroy {
     this.isRefreshing = true;
     this.refreshProgress = 0;
     this.refreshMessage = 'Starting refresh...';
+    let attackHistory: Map<string, number> | undefined;
+    let attackHistoryWarning = '';
 
     try {
+      try {
+        attackHistory = await this.fetchMyAttackTimestamps(key);
+      } catch (error) {
+        attackHistoryWarning = this.getRefreshErrorMessage(error);
+      }
+
       for (let index = 0; index < targetsToRefresh.length; index += 1) {
         if (index > 0) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
         const target = targetsToRefresh[index];
-        const liveData = await this.fetchTargetLiveData(target.id, key);
+        const liveData = await this.fetchTargetLiveData(target.id, key, attackHistory);
+        if (liveData.last_attack_timestamp !== undefined) {
+          liveData.last_attack_timestamp = Math.max(
+            target.data.last_attack_timestamp || 0,
+            liveData.last_attack_timestamp
+          );
+        }
         Object.assign(target.data, liveData);
         target.lastUpdatedAt = Date.now();
         this.refreshProgress = index + 1;
         this.refreshMessage = `Updated ${this.refreshProgress} of ${targetsToRefresh.length} targets.`;
       }
 
-      this.refreshMessage = `Updated all ${targetsToRefresh.length} targets.`;
+      this.refreshMessage = attackHistoryWarning
+        ? `Updated all ${targetsToRefresh.length} targets. Last attack data was not updated: ${attackHistoryWarning}`
+        : `Updated all ${targetsToRefresh.length} targets.`;
     } catch (error) {
       this.refreshMessage =
         `Refresh stopped after ${this.refreshProgress} of ${targetsToRefresh.length} targets: ` +
@@ -231,10 +255,26 @@ export class TargetComponent implements OnInit, OnDestroy {
     this.refreshMessage = `Refreshing ${target.data.name}...`;
 
     try {
-      const liveData = await this.fetchTargetLiveData(target.id, key);
+      let attackHistory: Map<string, number> | undefined;
+      let attackHistoryWarning = '';
+      try {
+        attackHistory = await this.fetchMyAttackTimestamps(key);
+      } catch (error) {
+        attackHistoryWarning = this.getRefreshErrorMessage(error);
+      }
+
+      const liveData = await this.fetchTargetLiveData(target.id, key, attackHistory);
+      if (liveData.last_attack_timestamp !== undefined) {
+        liveData.last_attack_timestamp = Math.max(
+          target.data.last_attack_timestamp || 0,
+          liveData.last_attack_timestamp
+        );
+      }
       Object.assign(target.data, liveData);
       target.lastUpdatedAt = Date.now();
-      this.refreshMessage = `Updated ${target.data.name}.`;
+      this.refreshMessage = attackHistoryWarning
+        ? `Updated ${target.data.name}. Last attack data was not updated: ${attackHistoryWarning}`
+        : `Updated ${target.data.name}.`;
     } catch (error) {
       this.refreshMessage = `Could not refresh ${target.data.name}: ${this.getRefreshErrorMessage(error)}`;
     } finally {
@@ -242,29 +282,16 @@ export class TargetComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async fetchTargetLiveData(id: string, key: string): Promise<TargetLiveData> {
+  private async fetchTargetLiveData(
+    id: string,
+    key: string,
+    attackHistory?: Map<string, number>
+  ): Promise<TargetLiveData> {
     if (!/^\d+$/.test(id)) {
       throw new Error(`Target ID "${id}" is not a valid Torn user ID.`);
     }
 
-    const params = new HttpParams()
-      .set('selections', 'basic')
-      .set('key', key);
-    const response = await firstValueFrom(
-      this.http.get<unknown>(`https://api.torn.com/user/${id}`, { params })
-    );
-
-    if (!this.isRecord(response)) {
-      throw new Error('Torn returned an unexpected response.');
-    }
-
-    const apiError = response['error'];
-    if (this.isRecord(apiError)) {
-      const message = typeof apiError['error'] === 'string'
-        ? apiError['error']
-        : 'Torn API returned an error.';
-      throw new Error(message);
-    }
+    const response = await this.requestTornData(id, 'basic', key);
 
     const status = response['status'];
     const statusUntil = this.isRecord(status) ? status['until'] : undefined;
@@ -298,6 +325,10 @@ export class TargetComponent implements OnInit, OnDestroy {
         liveData.last_action_timestamp = lastAction['timestamp'];
       }
     }
+    const lastAttackTimestamp = attackHistory?.get(id);
+    if (lastAttackTimestamp !== undefined) {
+      liveData.last_attack_timestamp = lastAttackTimestamp;
+    }
 
     if (
       !liveData.status_state &&
@@ -308,6 +339,71 @@ export class TargetComponent implements OnInit, OnDestroy {
     }
 
     return liveData;
+  }
+
+  private async fetchMyAttackTimestamps(key: string): Promise<Map<string, number>> {
+    const ownProfile = await this.requestTornData('', 'basic', key);
+    const playerId = ownProfile['player_id'];
+    if (typeof playerId !== 'number' && typeof playerId !== 'string') {
+      throw new Error('Torn did not return your player ID.');
+    }
+
+    const ownId = String(playerId);
+    const attackResponse = await this.requestTornData(ownId, 'attacksfull', key);
+    const attacks = attackResponse['attacks'];
+    if (!this.isRecord(attacks)) {
+      throw new Error('Torn did not return your full attack history.');
+    }
+
+    const timestamps = new Map<string, number>();
+    for (const attack of Object.values(attacks)) {
+      if (!this.isRecord(attack)) {
+        continue;
+      }
+
+      const attackerId = String(attack['attacker_id'] ?? '');
+      const defenderId = attack['defender_id'];
+      const timestamp = attack['timestamp_ended'];
+      if (
+        attackerId === ownId &&
+        (typeof defenderId === 'number' || typeof defenderId === 'string') &&
+        typeof timestamp === 'number' &&
+        Number.isFinite(timestamp) &&
+        timestamp > 0
+      ) {
+        const targetId = String(defenderId);
+        timestamps.set(targetId, Math.max(timestamps.get(targetId) || 0, timestamp));
+      }
+    }
+
+    return timestamps;
+  }
+
+  private async requestTornData(
+    id: string,
+    selection: string,
+    key: string
+  ): Promise<Record<string, unknown>> {
+    const params = new HttpParams()
+      .set('selections', selection)
+      .set('key', key);
+    const response: unknown = await firstValueFrom(
+      this.http.get<unknown>(`https://api.torn.com/user/${id}`, { params })
+    );
+
+    if (!this.isRecord(response)) {
+      throw new Error('Torn returned an unexpected response.');
+    }
+
+    const apiError = response['error'];
+    if (this.isRecord(apiError)) {
+      const message = typeof apiError['error'] === 'string'
+        ? apiError['error']
+        : 'Torn API returned an error.';
+      throw new Error(message);
+    }
+
+    return response;
   }
 
   private isRecord(value: unknown): value is Record<string, unknown> {
@@ -348,10 +444,19 @@ export class TargetComponent implements OnInit, OnDestroy {
     return timestamp === undefined ? 'Never' : this.getRelativeTime(Math.floor(timestamp / 1000));
   }
 
-  private getUpdatedFileName(fileName: string): string {
+  private setTargetFileName(fileName: string): void {
     const extensionIndex = fileName.lastIndexOf('.');
-    const baseName = extensionIndex > 0 ? fileName.slice(0, extensionIndex) : fileName;
-    return `${baseName}-updated.json`;
+    const nameWithoutExtension = extensionIndex > 0 ? fileName.slice(0, extensionIndex) : fileName;
+    const numberedExport = nameWithoutExtension.match(/^(.*?)(?:-updated)?-(\d+)$/i);
+
+    if (numberedExport) {
+      this.targetFileBaseName = numberedExport[1];
+      this.downloadSequence = Number(numberedExport[2]) + 1;
+      return;
+    }
+
+    this.targetFileBaseName = nameWithoutExtension.replace(/-updated$/i, '') || 'torn-targets';
+    this.downloadSequence = 1;
   }
 
   getHospitalCountdown(target: TargetListItem): string | undefined {

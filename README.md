@@ -12,7 +12,7 @@ Enter your API key and use the **Refresh** link under a target's status to refre
 
 Use the **Dark mode** toggle to switch to a deep navy theme with teal and violet aurora accents. Your preference is saved in this browser.
 
-Use **Download updated JSON** to save the current target list with refreshed status, health, and last-action data. Browser security does not allow the app to overwrite the uploaded file directly, so it downloads a separate `-updated.json` copy. Torn's public basic user response does not provide other players' last-attack records or battle stats, so those original JSON values are retained.
+Use **Download updated JSON** to save the current target list with refreshed status, health, last-action data, and your latest attack timestamps for targets found in Torn's most recent 1,000 attack records. Browser security does not allow the app to overwrite the uploaded file directly, so it downloads a separate numbered JSON copy (for example, `targets-1.json`, then `targets-2.json`). Battle stats are not updated by this refresh.
 
 ## Online Access
 

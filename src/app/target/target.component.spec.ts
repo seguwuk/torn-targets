@@ -45,7 +45,7 @@ describe('TargetComponent', () => {
     expect(document.body.classList.contains('dark-mode')).toBeFalse();
   });
 
-  it('refreshes target status and health using the entered API key', async () => {
+  it('refreshes target status, health, last action, and matching personal attack', fakeAsync(() => {
     component.targets = [{
       id: '12345',
       data: {
@@ -58,11 +58,38 @@ describe('TargetComponent', () => {
     }];
     component.apiKey = 'personal-key';
 
-    const refresh = component.refreshTargets();
-    const request = httpMock.expectOne(
-      request => request.url === 'https://api.torn.com/user/12345'
+    component.refreshTargets();
+    const ownProfileRequest = httpMock.expectOne(
+      request => request.url === 'https://api.torn.com/user/' &&
+        request.params.get('selections') === 'basic'
     );
-    expect(request.request.params.get('selections')).toBe('basic');
+    ownProfileRequest.flush({ player_id: 555 });
+    flushMicrotasks();
+
+    const attacksRequest = httpMock.expectOne(
+      request => request.url === 'https://api.torn.com/user/555' &&
+        request.params.get('selections') === 'attacksfull'
+    );
+    attacksRequest.flush({
+      attacks: {
+        '1': {
+          attacker_id: 555,
+          defender_id: 12345,
+          timestamp_ended: 1234567000
+        },
+        '2': {
+          attacker_id: 777,
+          defender_id: 12345,
+          timestamp_ended: 1234567999
+        }
+      }
+    });
+    flushMicrotasks();
+
+    const request = httpMock.expectOne(
+      request => request.url === 'https://api.torn.com/user/12345' &&
+        request.params.get('selections') === 'basic'
+    );
     expect(request.request.params.get('key')).toBe('personal-key');
     request.flush({
       status: { state: 'Okay', description: 'Okay' },
@@ -70,7 +97,7 @@ describe('TargetComponent', () => {
       last_action: { relative: '5 minutes ago', timestamp: 1234567890 }
     });
 
-    await refresh;
+    flushMicrotasks();
 
     expect(component.targets[0].data.status_state).toBe('Okay');
     expect(component.targets[0].data.status_description).toBe('Okay');
@@ -78,8 +105,9 @@ describe('TargetComponent', () => {
     expect(component.targets[0].data.life_maximum).toBe(100);
     expect(component.targets[0].data.last_action_relative).toBe('5 minutes ago');
     expect(component.targets[0].data.last_action_timestamp).toBe(1234567890);
+    expect(component.targets[0].data.last_attack_timestamp).toBe(1234567000);
     expect(component.apiKey).toBe('');
-  });
+  }));
 
   it('exports target data under the original IDs', () => {
     component.targets = [{
@@ -100,6 +128,11 @@ describe('TargetComponent', () => {
     expect(JSON.parse(component.getUpdatedJson())).toEqual({
       '12345': component.targets[0].data
     });
+  });
+
+  it('uses incrementing short JSON download names', () => {
+    expect(component.getNextDownloadFileName()).toBe('torn-targets-1.json');
+    expect(component.getNextDownloadFileName()).toBe('torn-targets-2.json');
   });
 
   it('refreshes only the selected target from its status refresh control', fakeAsync(() => {
@@ -129,8 +162,22 @@ describe('TargetComponent', () => {
 
     component.refreshTarget(component.targets[0]);
 
+    const ownProfileRequest = httpMock.expectOne(
+      request => request.url === 'https://api.torn.com/user/' &&
+        request.params.get('selections') === 'basic'
+    );
+    ownProfileRequest.flush({ player_id: 555 });
+    flushMicrotasks();
+    const attacksRequest = httpMock.expectOne(
+      request => request.url === 'https://api.torn.com/user/555' &&
+        request.params.get('selections') === 'attacksfull'
+    );
+    attacksRequest.flush({ attacks: {} });
+    flushMicrotasks();
+
     const request = httpMock.expectOne(
-      request => request.url === 'https://api.torn.com/user/12345'
+      request => request.url === 'https://api.torn.com/user/12345' &&
+        request.params.get('selections') === 'basic'
     );
     request.flush({
       status: { state: 'Hospital', description: 'In hospital', until: 1234567890 },
@@ -235,6 +282,19 @@ describe('TargetComponent', () => {
     component.sortBy('name');
     component.apiKey = 'personal-key';
     component.refreshTargets();
+
+    const ownProfileRequest = httpMock.expectOne(
+      request => request.url === 'https://api.torn.com/user/' &&
+        request.params.get('selections') === 'basic'
+    );
+    ownProfileRequest.flush({ player_id: 555 });
+    flushMicrotasks();
+    const attacksRequest = httpMock.expectOne(
+      request => request.url === 'https://api.torn.com/user/555' &&
+        request.params.get('selections') === 'attacksfull'
+    );
+    attacksRequest.flush({ attacks: {} });
+    flushMicrotasks();
 
     const firstRequest = httpMock.expectOne('https://api.torn.com/user/1?selections=basic&key=personal-key');
     firstRequest.flush({
