@@ -97,9 +97,10 @@
         <div class="target-list__row">
           <a class="target-list__name" [href]="'https://www.torn.com/profiles.php?XID=' + target.id"
             target="_blank" rel="noopener noreferrer">{{ target.data.name }}</a>
-          <button type="button" class="target-list__attack" (click)="attackTarget(target.id)">ATTACK</button>
+          <button type="button" class="target-list__attack" [ngClass]="getTargetStatusClass(target)"
+            (click)="attackTarget(target.id)">ATTACK</button>
           <span class="target-list__level">Lv {{ target.data.level }}</span>
-          <span class="target-list__status"
+          <span class="target-list__status" [ngClass]="getTargetStatusClass(target)"
             [title]="target.data.status_description || target.data.status_state || 'Not refreshed'">
             {{ target.data.status_description || target.data.status_state || '—' }}
             <span class="target-list__hospital-countdown" *ngIf="getHospitalCountdown(target) as countdown">

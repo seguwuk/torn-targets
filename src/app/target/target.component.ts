@@ -127,6 +127,18 @@ export class TargetComponent implements OnInit, OnDestroy {
     return 'target-list__item--stale';
   }
 
+  getTargetStatusClass(target: TargetListItem): string {
+    const status = target.data.status_state?.toLowerCase();
+
+    if (!status) {
+      return 'target-list__status--unknown';
+    }
+
+    return status === 'okay'
+      ? 'target-list__status--safe'
+      : 'target-list__status--restricted';
+  }
+
   private getLastActionAgeDays(lastAction: string): number {
     const minutes = this.parseLastAction(lastAction);
 

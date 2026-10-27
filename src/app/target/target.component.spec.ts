@@ -45,6 +45,49 @@ describe('TargetComponent', () => {
     expect(document.body.classList.contains('dark-mode')).toBeFalse();
   });
 
+  it('uses matching status colors for status labels and attack buttons', () => {
+    component.targets = [
+      {
+        id: '1',
+        data: {
+          name: 'Hospital target',
+          level: 50,
+          status_state: 'Hospital',
+          last_action_relative: '1 day ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      },
+      {
+        id: '2',
+        data: {
+          name: 'Okay target',
+          level: 25,
+          status_state: 'oKaY',
+          last_action_relative: '2 days ago',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      }
+    ];
+    fixture.detectChanges();
+
+    const rows = Array.from(
+      fixture.nativeElement.querySelectorAll('.target-list__item')
+    ) as HTMLElement[];
+    const hospitalRow = rows.find(row => row.textContent?.includes('Hospital target'));
+    const okayRow = rows.find(row => row.textContent?.includes('Okay target'));
+
+    expect(hospitalRow?.querySelector('.target-list__status')?.classList)
+      .toContain('target-list__status--restricted');
+    expect(hospitalRow?.querySelector('.target-list__attack')?.classList)
+      .toContain('target-list__status--restricted');
+    expect(okayRow?.querySelector('.target-list__status')?.classList)
+      .toContain('target-list__status--safe');
+    expect(okayRow?.querySelector('.target-list__attack')?.classList)
+      .toContain('target-list__status--safe');
+  });
+
   it('refreshes target status, health, last action, and matching personal attack', fakeAsync(() => {
     component.targets = [{
       id: '12345',

@@ -47,7 +47,7 @@ body.dark-mode .target-list__filter-input {
 }
 
 body.dark-mode .target-list__api-button,
-body.dark-mode .target-list__attack {
+body.dark-mode .target-list__attack:not(.target-list__status--restricted):not(.target-list__status--safe) {
   background: #43d9c2;
   color: #081a1d;
 }
@@ -69,6 +69,24 @@ body.dark-mode .target-list__timestamp {
   color: #8799b2;
 }
 
+body.dark-mode .target-list__status--restricted {
+  color: #ff8999;
+}
+
+body.dark-mode .target-list__status--safe {
+  color: #70e0a9;
+}
+
+body.dark-mode .target-list__attack.target-list__status--restricted {
+  background: #a93247;
+  color: #fff0f2;
+}
+
+body.dark-mode .target-list__attack.target-list__status--safe {
+  background: #2d9a70;
+  color: #071b15;
+}
+
 body.dark-mode .target-list__level,
 body.dark-mode .target-list__name,
 body.dark-mode .target-list__status a {
@@ -79,6 +97,24 @@ body.dark-mode .target-list__status a {
   min-width: 0;
   overflow-wrap: anywhere;
   white-space: normal;
+}
+
+.target-list__status--restricted {
+  color: #a61f31;
+}
+
+.target-list__status--safe {
+  color: #187343;
+}
+
+.target-list__attack.target-list__status--restricted {
+  background: #b42336;
+  color: #fff;
+}
+
+.target-list__attack.target-list__status--safe {
+  background: #237a45;
+  color: #fff;
 }
 
 .target-list__hospital-countdown {
