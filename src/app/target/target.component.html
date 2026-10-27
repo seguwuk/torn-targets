@@ -11,10 +11,24 @@
     <div class="target-list__title">
       <h1>Your Yata Torn Targets</h1>
     </div>
-    <div class="target-list__upload">
-      <label class="target-list__upload-label" for="target-file-input">Upload your YATA JSON here: </label>
-      <input id="target-file-input" type="file" accept="application/json" (change)="onFileSelected($event)"
-        class="target-list__upload-input" [disabled]="isRefreshing" />
+    <div class="target-list__toolbar-actions">
+      <div class="target-list__upload">
+        <label class="target-list__upload-label" for="target-file-input">Upload your YATA JSON here: </label>
+        <input id="target-file-input" type="file" accept="application/json" (change)="onFileSelected($event)"
+          class="target-list__upload-input" [disabled]="isRefreshing" />
+      </div>
+      <button type="button" class="target-list__api-button" (click)="refreshTargets()"
+        [disabled]="isRefreshing || !apiKey.trim() || !targets.length">
+        {{ isRefreshing ? 'Refreshing...' : 'Refresh targets' }}
+      </button>
+      <button type="button" class="target-list__api-button target-list__theme-toggle"
+        [attr.aria-pressed]="isDarkMode" (click)="toggleDarkMode()">
+        {{ isDarkMode ? 'Light mode' : 'Dark mode' }}
+      </button>
+      <button type="button" class="target-list__api-button"
+        [disabled]="!targets.length" (click)="downloadUpdatedJson()">
+        Download updated JSON
+      </button>
     </div>
   </div>
 
@@ -23,10 +37,6 @@
     <input id="torn-api-key" name="torn-api-key" type="password" autocomplete="off"
       [(ngModel)]="apiKey" [disabled]="isRefreshing" class="target-list__api-input"
       placeholder="Enter your personal API key" />
-    <button type="button" class="target-list__api-button" (click)="refreshTargets()"
-      [disabled]="isRefreshing || !apiKey.trim() || !targets.length">
-      {{ isRefreshing ? 'Refreshing...' : 'Refresh status & health' }}
-    </button>
     <span class="target-list__api-note">
       The key is sent directly to Torn over HTTPS, used for this refresh, and not saved by this app.
       <a href="https://www.torn.com/api.html" target="_blank" rel="noopener noreferrer">About Torn API keys</a>
@@ -44,22 +54,32 @@
   <div class="target-list__table">
     <div class="target-list__header-row">
       <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
-        (click)="sortBy('name')">
+        (click)="sortBy('name')" [disabled]="isRefreshing">
         Name {{ sortMode === 'name' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
       </button>
       <span class="target-list__header-cell">Action</span>
       <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
-        (click)="sortBy('level')">
+        (click)="sortBy('level')" [disabled]="isRefreshing">
         Level {{ sortMode === 'level' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
       </button>
-      <span class="target-list__header-cell">Status</span>
-      <span class="target-list__header-cell">Health</span>
       <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
-        (click)="sortBy('lastAction')">
+        (click)="sortBy('status')" [disabled]="isRefreshing">
+        Status {{ sortMode === 'status' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
+      </button>
+      <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
+        (click)="sortBy('lastUpdate')" [disabled]="isRefreshing">
+        Last Update {{ sortMode === 'lastUpdate' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
+      </button>
+      <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
+        (click)="sortBy('health')" [disabled]="isRefreshing">
+        Health {{ sortMode === 'health' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
+      </button>
+      <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
+        (click)="sortBy('lastAction')" [disabled]="isRefreshing">
         Last Action {{ sortMode === 'lastAction' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
       </button>
         <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
-          (click)="sortBy('lastAttack')">
+          (click)="sortBy('lastAttack')" [disabled]="isRefreshing">
           Last Attack {{ sortMode === 'lastAttack' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
         </button>
     </div>
@@ -67,12 +87,25 @@
     <ul class="target-list__items" *ngIf="sortedTargets.length; else emptyState">
       <li class="target-list__item" *ngFor="let target of sortedTargets" [ngClass]="getLastActionAgeClass(target.data)">
         <div class="target-list__row">
-          <span class="target-list__name">{{ target.data.name }}</span>
+          <a class="target-list__name" [href]="'https://www.torn.com/profiles.php?XID=' + target.id"
+            target="_blank" rel="noopener noreferrer">{{ target.data.name }}</a>
           <button type="button" class="target-list__attack" (click)="attackTarget(target.id)">ATTACK</button>
           <span class="target-list__level">Lv {{ target.data.level }}</span>
           <span class="target-list__status"
             [title]="target.data.status_description || target.data.status_state || 'Not refreshed'">
             {{ target.data.status_description || target.data.status_state || '—' }}
+            <span class="target-list__hospital-countdown" *ngIf="getHospitalCountdown(target) as countdown">
+              {{ countdown }}
+            </span>
+            <a href="#" [attr.aria-label]="'Refresh status for ' + target.data.name"
+              [title]="apiKey.trim() ? 'Refresh this target' : 'Enter your Torn API key above to refresh this target'"
+              [attr.aria-disabled]="isRefreshing || !apiKey.trim()"
+              (click)="refreshTarget(target); $event.preventDefault()">Refresh</a>
+          </span>
+          <span class="target-list__last-update" [title]="target.lastUpdatedAt
+            ? (target.lastUpdatedAt | date:'medium')
+            : 'Not refreshed yet'">
+            {{ getLastUpdateTime(target.lastUpdatedAt) }}
           </span>
           <span class="target-list__health">
             {{ target.data.life_current !== undefined && target.data.life_maximum !== undefined
