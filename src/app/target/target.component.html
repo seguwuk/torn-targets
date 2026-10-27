@@ -31,10 +31,7 @@
         (click)="sortBy('name')">
         Name {{ sortMode === 'name' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
       </button>
-      <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
-        (click)="sortBy('lastAttack')">
-        Last Attack {{ sortMode === 'lastAttack' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
-      </button>
+      <span class="target-list__header-cell">Action</span>
       <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
         (click)="sortBy('level')">
         Level {{ sortMode === 'level' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
@@ -43,7 +40,10 @@
         (click)="sortBy('lastAction')">
         Last Action {{ sortMode === 'lastAction' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
       </button>
-      <span class="target-list__header-cell">Action</span>
+        <button type="button" class="target-list__header-cell target-list__header-cell--clickable"
+          (click)="sortBy('lastAttack')">
+          Last Attack {{ sortMode === 'lastAttack' ? (sortOrder === 'recent' ? '↓' : '↑') : '' }}
+        </button>
     </div>
 
     <ul class="target-list__items" *ngIf="sortedTargets.length; else emptyState">
