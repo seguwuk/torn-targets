@@ -57,6 +57,7 @@
     <span class="target-list__subtitle-item target-list__item--recent">Red = last action under 10 days</span>
     <span class="target-list__subtitle-item target-list__item--moderate">Yellow = 11–30 days</span>
     <span class="target-list__subtitle-item target-list__item--stale">Green = over 30 days</span>
+    <span class="target-list__subtitle-item">★ Attack = last attack over 10 days ago</span>
   </div>
 
   <div class="target-list__table">
@@ -102,7 +103,10 @@
           <a class="target-list__name" [href]="'https://www.torn.com/profiles.php?XID=' + target.id"
             target="_blank" rel="noopener noreferrer">{{ target.data.name }}</a>
           <button type="button" class="target-list__attack" [ngClass]="getTargetStatusClass(target)"
-            (click)="attackTarget(target.id)">ATTACK</button>
+            (click)="attackTarget(target.id)">
+            <span *ngIf="isAttackOverTenDaysOld(target)" aria-hidden="true">★ </span>ATTACK<span
+              *ngIf="isAttackOverTenDaysOld(target)" aria-hidden="true"> ★</span>
+          </button>
           <span class="target-list__fair-fight">{{ target.data.fair_fight ?? '—' }}</span>
           <span class="target-list__level">Lv {{ target.data.level }}</span>
           <span class="target-list__status" [ngClass]="getTargetStatusClass(target)"

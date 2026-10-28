@@ -54,6 +54,59 @@ describe('TargetComponent', () => {
     expect(columns[3].classList).toContain('target-list__level');
   });
 
+  it('shows stars on the attack button only when the last attack was over 10 days ago', () => {
+    component.currentTime = 1_700_000_000_000;
+    component.targets = [
+      {
+        id: 'old',
+        data: {
+          name: 'Old target',
+          level: 50,
+          last_action_relative: '11 days ago',
+          last_attack_timestamp: 1_700_000_000 - 11 * 86400,
+          result: ''
+        }
+      },
+      {
+        id: 'at-cutoff',
+        data: {
+          name: 'At cutoff target',
+          level: 50,
+          last_action_relative: '10 days ago',
+          last_attack_timestamp: 1_700_000_000 - 10 * 86400,
+          result: ''
+        }
+      },
+      {
+        id: 'never',
+        data: {
+          name: 'Never attacked target',
+          level: 50,
+          last_action_relative: 'Never',
+          last_attack_timestamp: 0,
+          result: ''
+        }
+      }
+    ];
+    fixture.detectChanges();
+
+    const rows = Array.from(
+      fixture.nativeElement.querySelectorAll('.target-list__item')
+    ) as HTMLElement[];
+    const oldButton = rows.find(row => row.textContent?.includes('Old target'))
+      ?.querySelector('.target-list__attack');
+    const cutoffButton = rows.find(row => row.textContent?.includes('At cutoff target'))
+      ?.querySelector('.target-list__attack');
+    const neverButton = rows.find(row => row.textContent?.includes('Never attacked target'))
+      ?.querySelector('.target-list__attack');
+
+    expect(oldButton?.textContent?.trim()).toBe('★ ATTACK ★');
+    expect(cutoffButton?.textContent?.trim()).toBe('ATTACK');
+    expect(neverButton?.textContent?.trim()).toBe('ATTACK');
+    expect(fixture.nativeElement.querySelector('.target-list__subtitle')?.textContent)
+      .toContain('Attack = last attack over 10 days ago');
+  });
+
   it('toggles dark mode and persists the preference', () => {
     component.toggleDarkMode();
 

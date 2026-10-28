@@ -175,6 +175,13 @@ export class TargetComponent implements OnInit, OnDestroy {
       : 'target-list__status--restricted';
   }
 
+  isAttackOverTenDaysOld(target: TargetListItem): boolean {
+    const timestamp = target.data.last_attack_timestamp;
+    const ageInSeconds = this.currentTime / 1000 - timestamp;
+
+    return timestamp > 0 && ageInSeconds > 10 * 86400;
+  }
+
   private getLastActionAgeDays(lastAction: string): number {
     const seconds = this.parseLastAction(lastAction);
 
